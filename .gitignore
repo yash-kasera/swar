@@ -1,0 +1,13 @@
+# secrets and local data: never commit
+.env
+.env.*
+projects/
+# environments and caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+# promo-editing assets (not part of the app)
+click.mp3
+cursor.png
+/logo.png

@@ -1,0 +1,14 @@
+# One-click deploy on Render (free plan). Visitors bring their own API keys; nothing is stored for good.
+services:
+  - type: web
+    name: swar
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips "*"
+    healthCheckPath: /
+    envVars:
+      - key: SWAR_HOSTED
+        value: "1"
+      - key: PYTHON_VERSION
+        value: 3.12.5

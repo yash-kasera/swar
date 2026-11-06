@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Swar · Voice studio for creators</title>
+  <meta name="description" content="Swar turns your scripts and stories into scene-by-scene audio with expressive Indian voices. Built for creators." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+</head>
+<body>
+  <div class="bg" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span><span class="blob b4"></span></div>
+
+  <div class="app">
+    <aside class="sidebar glass" id="sidebar">
+      <div class="brand">
+        <span class="logo" aria-hidden="true"><img src="logo.png" alt="" /></span>
+        <span class="brand-text"><span class="brand-name">Swar</span><span class="brand-sub">Voice studio for creators</span></span>
+      </div>
+      <button class="side-btn" id="newProject"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> New story</button>
+      <div class="side-label">Stories & episodes</div>
+      <nav class="tree" id="tree"></nav>
+      <div class="side-foot">
+        <div class="hosted-note">Your work is saved in this browser.</div>
+        <div class="usage-mini" id="usageMini" title="Usage sent from Swar (Gnani doesn't publish per-call costs)"></div>
+        <div class="stack">
+          <span>Voice input <b>Gnani Prisma</b></span>
+          <span>Voices <b>Gnani Timbre v3</b></span>
+          <span>Script <b id="llmName">LLM</b></span>
+        </div>
+        <button class="side-btn settings-btn" id="settingsBtn">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+          Settings & API keys
+        </button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar glass">
+        <button class="icon-btn only-mobile" id="toggleSide" title="Stories"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <div class="crumbs" id="crumbs"><span class="crumb-home">Swar</span></div>
+        <div class="top-actions" id="topActions" hidden>
+          <button class="icon-btn" id="undoBtn" title="Undo last script change"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></button>
+          <div class="menu-wrap">
+            <button class="icon-btn" id="historyBtn" title="Version history"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg></button>
+            <div class="menu glass history-menu" id="historyMenu" hidden></div>
+          </div>
+          <button class="btn primary" id="playAll"><svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z" class="fill"/></svg><span class="lbl">Play all</span></button>
+          <div class="menu-wrap">
+            <button class="btn" id="exportBtn"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span class="lbl">Export</span></button>
+            <div class="menu glass" id="exportMenu" hidden>
+              <div class="menu-label">Episode audio · loudness evened, with your pauses</div>
+              <a id="exMp3" download>MP3 <small>128 kbps, ready to upload</small></a>
+              <a id="exWav" download>WAV <small>lossless, for editing</small></a>
+              <div class="menu-label">Subtitles · timed from each line</div>
+              <a id="exSrt" download>SRT, Hinglish <small>YouTube, Premiere, CapCut</small></a>
+              <a id="exSrtHi" download>SRT, हिंदी <small>Devanagari</small></a>
+              <a id="exVtt" download>WebVTT, Hinglish <small>for web players</small></a>
+              <div class="menu-label">Everything</div>
+              <a id="exZip" download>ZIP <small>every line, full MP3 + WAV, subtitles, project.txt</small></a>
+              <a id="exTxt" download>Project as text <small>cast, direction, scenes, files, pauses in order</small></a>
+            </div>
+          </div>
+          <div class="menu-wrap">
+            <button class="icon-btn" id="moreBtn" title="More"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4" class="fill"/><circle cx="12" cy="12" r="1.4" class="fill"/><circle cx="19" cy="12" r="1.4" class="fill"/></svg></button>
+            <div class="menu glass" id="moreMenu" hidden>
+              <a id="delEpisode">Delete this episode</a>
+              <a id="delProject" class="danger">Delete the whole story</a>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="feed" id="feed"></section>
+
+      <div class="player glass" id="player" hidden>
+        <button class="icon-btn" id="pPrev" title="Previous line"><svg viewBox="0 0 24 24"><path d="M18 6l-8 6 8 6zM6 6v12" class="fill"/></svg></button>
+        <button class="icon-btn big" id="pToggle" title="Pause"><svg viewBox="0 0 24 24" id="pIcon"><path d="M8 5h3v14H8zM13 5h3v14h-3z" class="fill"/></svg></button>
+        <button class="icon-btn" id="pNext" title="Next line"><svg viewBox="0 0 24 24"><path d="M6 6l8 6-8 6zM18 6v12" class="fill"/></svg></button>
+        <div class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        <div class="p-info"><div class="p-now" id="pNow"></div><div class="p-bar"><span id="pFill"></span></div></div>
+        <button class="icon-btn" id="pClose" title="Stop"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+
+      <form class="composer glass" id="composer">
+        <div class="composer-row">
+          <label class="icon-btn" title="Attach this episode's script (.txt .md .docx .pdf .html .rtf)">
+            <input type="file" id="fileInput" accept=".txt,.md,.markdown,.docx,.pdf,.html,.htm,.rtf" hidden />
+            <svg viewBox="0 0 24 24"><path d="M21 12l-8.5 8.5a5 5 0 0 1-7-7L14 5a3.3 3.3 0 0 1 4.7 4.7L10 18.4a1.7 1.7 0 0 1-2.4-2.4L15.5 8"/></svg>
+          </label>
+          <textarea id="prompt" rows="1"></textarea>
+          <button type="button" class="icon-btn mic" id="micBtn" title="Speak your direction (Gnani Prisma)">
+            <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/></svg>
+            <span class="rec-time" id="recTime"></span>
+          </button>
+          <button type="submit" class="icon-btn send" id="sendBtn" title="Generate"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+      </form>
+    </main>
+  </div>
+  <div class="modal-back" id="settingsModal" hidden>
+    <div class="modal glass" role="dialog" aria-labelledby="setTitle">
+      <div class="modal-head"><h3 id="setTitle">Settings & API keys</h3><button class="icon-btn" id="setClose" title="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <p class="doc-sub" id="keyNote">Keys are saved only in this computer's <code>.env</code> file and are never shown again in full.</p>
+      <label class="set-field"><span>Gnani API key <small id="gnaniMask"></small></span>
+        <input type="password" id="gnaniKey" class="field" placeholder="Paste a new key to replace the current one" autocomplete="off" />
+        <small>From app.gnani.ai/voice. Used for Prisma (speech-to-text), Timbre (voices) and voice cloning.</small></label>
+      <label class="set-field"><span>Gemini API key <small id="geminiMask"></small></span>
+        <input type="password" id="geminiKey" class="field" placeholder="Paste a new key to replace the current one" autocomplete="off" />
+        <small>From Google AI Studio. Writes the cast and scripts (Evon has no hosted API yet).</small></label>
+      <label class="set-field"><span>Script model</span>
+        <input id="geminiModel" class="field" list="modelList" />
+        <datalist id="modelList"><option value="gemini-3.5-flash"><option value="gemini-2.5-flash"><option value="gemini-flash-latest"><option value="gemini-2.5-pro"></datalist></label>
+      <div class="modal-actions">
+        <span id="testResult" class="doc-sub"></span><span class="spacer"></span>
+        <button class="btn" id="testKeys">Test connection</button>
+        <button class="btn primary" id="saveKeys">Save</button>
+      </div>
+      <div class="usage-box">
+        <div class="usage-head"><b>Usage from this app</b><button class="btn ghost small" id="resetUsage">Reset</button></div>
+        <div class="usage-grid" id="usageGrid"></div>
+        <small class="doc-sub">Gnani doesn't publish per-call credit costs, so Swar counts what it sends. Check exact credits at app.gnani.ai.</small>
+      </div>
+    </div>
+  </div>
+  <input type="file" id="cloneInput" accept=".wav,.mp3,audio/wav,audio/mpeg" hidden />
+  <div class="toast" id="toast" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>
