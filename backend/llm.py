@@ -142,7 +142,7 @@ usually 4-8 scenes. Return only JSON matching the schema."""
 
 def _models() -> list[str]:
     primary = ctx.key("model") or "gemini-3.5-flash"
-    fallback = [m.strip() for m in os.environ.get("GEMINI_FALLBACK_MODELS", "gemini-2.5-flash,gemini-flash-latest").split(",") if m.strip()]
+    fallback = [m.strip() for m in os.environ.get("GEMINI_FALLBACK_MODELS", "gemini-3-flash-preview,gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-flash-lite-latest").split(",") if m.strip()]
     return [primary] + [m for m in fallback if m != primary]
 
 
@@ -159,7 +159,7 @@ def _call(model: str, system: str, prompt: str, schema: dict | None, temperature
         body["systemInstruction"] = {"parts": [{"text": system}]}
     r = httpx.post(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-        headers={"x-goog-api-key": key}, json=body, timeout=300,
+        headers={"x-goog-api-key": key}, json=body, timeout=httpx.Timeout(120, connect=15),
     )
     if r.status_code != 200:
         raise LLMError(f"{model} returned {r.status_code}: {r.text[:300]}")
@@ -174,11 +174,15 @@ def _call(model: str, system: str, prompt: str, schema: dict | None, temperature
 def _json_call(system: str, prompt: str, schema: dict, validate) -> tuple[dict, str]:
     errors = []
     for model in _models():
-        for _ in range(2):
+        for attempt in range(2):
             try:
                 return validate(json.loads(_call(model, system, prompt, schema))), model
             except (LLMError, json.JSONDecodeError, httpx.TransportError, KeyError, TypeError) as e:
-                errors.append(f"{model}: {e}")
+                errors.append(f"{model}: {str(e)[:160]}")
+                msg = str(e)
+                # out of quota, retired, or hanging: don't retry this model, move to the next one
+                if any(code in msg for code in (" 429", " 404", " 403")) or isinstance(e, httpx.TimeoutException):
+                    break
                 time.sleep(2)
     raise LLMError("The script model failed. " + " | ".join(errors[-3:]))
 
