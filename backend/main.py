@@ -167,7 +167,11 @@ def _lock(pid: str) -> threading.RLock:
 def _pdir(pid: str) -> Path:
     if not ID_RE.match(pid) or not (ctx.root() / pid / "project.json").exists():
         raise HTTPException(404, "Project not found")
-    return ctx.root() / pid
+    d = ctx.root() / pid
+    # A workspace restored from the browser only brings back files, not empty folders.
+    for sub in ("audio", "episodes", "clones"):
+        (d / sub).mkdir(exist_ok=True)
+    return d
 
 
 def _write(path: Path, data: dict) -> None:
@@ -339,6 +343,10 @@ class Named(BaseModel):
 class GenerateReq(BaseModel):
     instructions: str = ""
     fresh: bool = False
+    language: str | None = None   # spoken language for the story; asked before the first generation
+
+
+SPOKEN = {"auto": "the same language mix as the source script"} | dict(LANGUAGES)
 
 
 class CharReq(BaseModel):
@@ -401,7 +409,7 @@ class SettingsReq(BaseModel):
 @app.get("/api/meta")
 def meta():
     return {"voices": VOICES, "languages": LANGUAGES, "tags": TAGS, "paces": list(PACE),
-            "llm": ctx.key("model") or "gemini-3.5-flash", "hosted": ctx.HOSTED, "line_gap": LINE_GAP, "scene_gap": SCENE_GAP,
+            "llm": ctx.key("model") or "gemini-3.5-flash", "hosted": ctx.HOSTED, "spoken": SPOKEN, "line_gap": LINE_GAP, "scene_gap": SCENE_GAP,
             "keys": _keys_status()}
 
 
@@ -822,6 +830,14 @@ def generate(pid: str, eid: str, body: GenerateReq):
             raise HTTPException(400, "Attach a story or script first")
         if ep["job"]["status"] in BUSY:
             raise HTTPException(409, "A step is already running")
+        if body.language is not None:
+            if body.language not in SPOKEN:
+                raise HTTPException(400, "Unknown language")
+            p = _load_project(pid)
+            p["language"] = body.language
+            _save_project(p)
+        elif not _load_project(pid).get("language"):
+            raise HTTPException(400, "Choose the spoken language first")
         if body.instructions.strip():
             ep["history"].append({"role": "user", "text": body.instructions.strip(), "at": time.time()})
         ep["cast_confirmed"] = True
@@ -838,7 +854,7 @@ def _pipeline(pid: str, eid: str, fresh: bool) -> None:
         story = _epath(pid, eid).with_suffix(".txt").read_text("utf-8")
         instructions = [h["text"] for h in ep["history"] if h["role"] == "user"]
         previous = None if fresh or not ep.get("script") else ep["script"]
-        script, model = llm.write_script(story, instructions, p["cast"], previous)
+        script, model = llm.write_script(story, instructions, p["cast"], previous, p.get("language") or "auto")
         script["model"] = model
         with _lock(pid):
             p = _load_project(pid)
@@ -1076,7 +1092,7 @@ def add_line(pid: str, eid: str, si: int, body: NewLine):
             raise HTTPException(400, "Unknown character")
         ep["job"] = {"status": "voicing", "stage": "Preparing and voicing the new line", "done": 0, "total": 1, "error": None}
         _save_ep(pid, ep)
-    prepared = llm.prepare_line(body.text, c["name"])  # outside the lock: it calls the LLM
+    prepared = llm.prepare_line(body.text, c["name"], _load_project(pid).get("language") or "auto")  # outside the lock: it calls the LLM
     with _lock(pid):
         ep = _load_ep(pid, eid)
         _snapshot(pid, ep, f"Before adding a line to scene {si + 1}")

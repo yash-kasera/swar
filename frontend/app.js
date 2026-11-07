@@ -162,7 +162,7 @@ function toggleStory(pid, force) {
 
 async function openEpisode(pid, eid) {
   stopPlayback();
-  state.editing = state.pauseEdit = null;
+  state.editing = state.pauseEdit = null; state.lang = null;
   state.project = await api(`/api/projects/${pid}`);
   state.ep = await api(`/api/projects/${pid}/episodes/${eid}`);
   state.castOpen = false;
@@ -401,15 +401,22 @@ function castHTML() {
       </div>
       <div class="desc">${here(c) ? `<span class="in-ep">in this episode</span> ` : `<span style="margin-right:6px">from another episode ·</span>`}${esc(c.description)}</div>
     </div>`).join("");
+  const lang = chosenLang();
+  const langOpts = (lang ? "" : `<option value="" selected disabled>Choose a language…</option>`) +
+    Object.entries(state.meta.spoken).map(([k, v]) => `<option value="${k}" ${k === lang ? "selected" : ""}>${esc(k === "auto" ? "Same as the script" : v)}</option>`).join("");
+  const langRow = `<div class="lang-pick ${inReview() && !lang ? "need" : ""}"><label>Spoken language
+      <select data-lang aria-label="Spoken language">${langOpts}</select></label>
+      <span class="doc-sub">${inReview() ? "Every line will be written and voiced in this language. You can translate the script into any of them."
+        : lang !== p.language ? "Applies to your next revision. Send a message such as “regenerate in this language”." : "Used for every episode of this story."}</span></div>`;
   const foot = inReview()
-    ? `<span class="doc-sub">Defaults are ready. Change anything, or just proceed.</span><span class="spacer"></span>
+    ? `<span class="doc-sub">${lang ? "Defaults are ready. Change anything, or just proceed." : "Pick the spoken language to continue."}</span><span class="spacer"></span>
        <button class="btn ghost small" data-add-char>+ Add character</button>
-       <button class="btn primary" data-proceed>Proceed: write scenes & voice them →</button>`
+       <button class="btn primary ${lang ? "" : "disabled"}" data-proceed title="${lang ? "" : "Choose the spoken language first"}">Proceed: write scenes & voice them →</button>`
     : `<button class="btn ghost small" data-add-char>+ Add character</button><span class="spacer"></span>
        <span class="doc-sub">Voice changes apply to all episodes. Re-voice to update audio.</span>`;
   return `<div class="card cast-card open">${head}
     ${inReview() ? `<div class="cast-intro">Swar found these characters and gave each one a default voice. Press ▶ to audition, pick another voice, fix a gender, or clone a voice from your own recording.</div>` : ""}
-    <div class="cast-rows">${rows}</div><div class="cast-foot">${foot}</div></div>`;
+    ${langRow}<div class="cast-rows">${rows}</div><div class="cast-foot">${foot}</div></div>`;
 }
 
 /* ---------- script */
@@ -450,9 +457,20 @@ function scriptHTML(s) {
   return `<div class="script-head"><h2>${esc(s.title)}</h2><p>${esc(s.logline)}</p>
       <div class="head-row"><span class="doc-sub">${s.scenes.length} scenes${total ? ` · ${fmtTime(total)} with pauses` : ""} · script by ${esc(s.model || "LLM")}</span>
         <div class="seg" role="group" aria-label="Script view">
-          <button type="button" data-view="roman" class="${state.view === "roman" ? "on" : ""}" title="Hinglish in English letters, for reading">Hinglish</button>
-          <button type="button" data-view="native" class="${state.view === "native" ? "on" : ""}" title="Exact text sent to Timbre, with Hindi in Devanagari">हिंदी</button>
+          <button type="button" data-view="roman" class="${state.view === "roman" ? "on" : ""}" title="The lines in English letters, for reading">${scriptLabels()[0]}</button>
+          <button type="button" data-view="native" class="${state.view === "native" ? "on" : ""}" title="The exact text sent to Timbre, in the language's own script">${scriptLabels()[1]}</button>
         </div></div></div>${scenes}`;
+}
+
+const NATIVE = { "hi-en": "हिंदी", "hi-IN": "हिंदी", "mr-IN": "मराठी", "bn-IN": "বাংলা", "gu-IN": "ગુજરાતી", "kn-IN": "ಕನ್ನಡ",
+  "ml-IN": "മലയാളം", "pa-IN": "ਪੰਜਾਬੀ", "ta-IN": "தமிழ்", "te-IN": "తెలుగు", "en-IN": "Original" };
+function scriptLabels() {
+  let lang = state.project?.language;
+  if (!lang || lang === "auto") {  // use the most common line language
+    const n = {}; state.ep?.script?.scenes.forEach((s) => s.lines.forEach((l) => (n[l.language] = (n[l.language] || 0) + 1)));
+    lang = Object.entries(n).sort((a, b) => b[1] - a[1])[0]?.[0] || "hi-en";
+  }
+  return [lang === "hi-en" || lang === "hi-IN" ? "Hinglish" : "Roman", NATIVE[lang] || "Native"];
 }
 
 function pauseHTML(l, si, li) {
@@ -542,10 +560,19 @@ async function attach(file) {
   } catch (e) { toast(e.message); }
 }
 
+function chosenLang() { return state.lang ?? state.project?.language ?? ""; }
 async function generate() {
   if (busy() || !state.ep?.document) return;
+  const language = chosenLang();
+  if (!language) {
+    toast("Choose the spoken language first (in the cast card)");
+    state.castOpen = true; render(true);
+    setTimeout(() => { const sel = document.querySelector("[data-lang]"); sel?.focus(); sel?.scrollIntoView({ block: "center", behavior: "smooth" }); }, 60);
+    return;
+  }
   try {
-    await api(epUrl("/generate"), J("POST", { instructions: prompt.value.trim() }));
+    await api(epUrl("/generate"), J("POST", { instructions: prompt.value.trim(), language }));
+    state.lang = null;
     prompt.value = ""; autosize();
     await refresh(); loadProjects(); schedulePoll();
     setTimeout(() => ($("#feed").scrollTop = $("#feed").scrollHeight), 50);
@@ -730,6 +757,7 @@ async function saveChar(cid, patch) {
   catch (e) { toast(e.message); render(true); }
 }
 document.addEventListener("change", (e) => {
+  if (e.target.matches("[data-lang]")) { state.lang = e.target.value; render(true); return; }
   const row = e.target.closest("[data-char]");
   if (row && e.target.dataset.field) {
     const f = e.target.dataset.field, v = e.target.value.trim();

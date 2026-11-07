@@ -222,9 +222,25 @@ def detect_cast(story: str, existing: list[dict]) -> list[dict]:
 
 
 # ------------------------------------------------------------------ script
-def write_script(story: str, instructions: list[str], cast: list[dict], previous: dict | None = None) -> tuple[dict, str]:
+def language_rule(language: str) -> str:
+    """Hard instruction for the spoken language the user picked."""
+    if not language or language == "auto":
+        return "SPOKEN LANGUAGE: keep the source script's own language mix.\n\n"
+    name = LANGUAGES.get(language, language)
+    if language == "hi-en":
+        return ("SPOKEN LANGUAGE (chosen by the user, must follow): Hinglish, a natural Hindi-English code-mix. "
+                'Every line uses language "hi-en". Translate or adapt the source if it is in another language.\n\n')
+    return (f"SPOKEN LANGUAGE (chosen by the user, must follow): {name}. Write every spoken line in {name}, translating "
+            f'the source if needed, and set "language" to "{language}" on every line. Use the native script in "text" '
+            '(English loanwords people really say may stay in Latin letters) and a Latin-letter transliteration in '
+            '"text_roman". The scene "visual", "mood" and "sound_cue" stay in English.\n\n')
+
+
+def write_script(story: str, instructions: list[str], cast: list[dict], previous: dict | None = None,
+                 language: str = "auto") -> tuple[dict, str]:
     """Returns (script, model_used). Speakers are matched to the fixed cast by the caller."""
-    prompt = "CAST (fixed):\n" + "\n".join(f"- {c['name']} ({c['gender']}): {c['description']}" for c in cast)
+    prompt = language_rule(language)
+    prompt += "CAST (fixed):\n" + "\n".join(f"- {c['name']} ({c['gender']}): {c['description']}" for c in cast)
     prompt += f"\n\nSTORY / COMMENTARY TEXT:\n<<<\n{story}\n>>>\n\n"
     if instructions:
         prompt += "USER INSTRUCTIONS (oldest first; the last one is the newest request):\n"
@@ -271,7 +287,7 @@ LINE_SCHEMA = {
 }
 
 
-def prepare_line(raw: str, speaker: str) -> dict:
+def prepare_line(raw: str, speaker: str, language: str = "auto") -> dict:
     """Turn a line the user typed (any script) into Swar's spoken + reader forms."""
     system = (
         "You prepare one line of dialogue for an Indian text-to-speech engine. Keep the user's words and meaning. "
@@ -281,6 +297,8 @@ def prepare_line(raw: str, speaker: str) -> dict:
         "\"emotion\": a one-word delivery label. Write numbers as words."
     )
     try:
+        if language and language != "auto":
+            system += f" The story's spoken language is {LANGUAGES.get(language, language)}; keep the line in that language."
         j, _ = _json_call(system, f"Speaker: {speaker}\nLine: {raw}", LINE_SCHEMA, lambda x: x)
         text = clean_text(j.get("text") or raw)
         return {"text": text if speakable(text) else clean_text(raw), "text_roman": clean_text(j.get("text_roman") or raw),
