@@ -9,7 +9,7 @@ and subtitles.
 
 Built for the **Great Indian AI Internship Challenge** on **Gnani AI**'s speech stack.
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/yash-kasera/swar)
+**Try it live: [swar-p5y2.onrender.com](https://swar-p5y2.onrender.com/)** (bring your own Gnani and Gemini keys; the first visit after a quiet spell can take ~30 s to wake up)
 
 ## What it does
 | Step | What happens | Tech |
@@ -37,8 +37,7 @@ The hosted version stores **nothing permanent on the server**:
 - Every browser gets its own private workspace (random session id). Clearing site data clears your work.
 
 ### Deploy your own copy
-- **Render (free):** click the button above and sign in. `render.yaml` sets `SWAR_HOSTED=1`. The free plan
-  sleeps after 15 minutes idle, so the first visit after that takes about 30 seconds.
+- **Render:** `render.yaml` is included (sets `SWAR_HOSTED=1`).
 - **Any Docker host** (Hugging Face Spaces, Railway, Koyeb, Fly.io): use the `Dockerfile` (port `7860`, or set `PORT`).
 
 ## Run locally
